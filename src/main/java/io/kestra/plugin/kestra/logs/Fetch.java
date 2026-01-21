@@ -4,8 +4,8 @@ import io.kestra.core.models.annotations.Example;
 import io.kestra.core.models.annotations.Plugin;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.tasks.RunnableTask;
-import io.kestra.core.models.tasks.Task;
-import io.kestra.core.repositories.LogRepositoryInterface;
+import io.kestra.plugin.kestra.AbstractKestraTask;
+import io.kestra.sdk.KestraClient;
 import io.kestra.core.runners.DefaultRunContext;
 import io.kestra.core.runners.RunContext;
 import io.kestra.core.serializers.FileSerde;
@@ -52,7 +52,7 @@ import static io.kestra.core.utils.Rethrow.throwConsumer;
     },
     aliases = "io.kestra.core.tasks.log.Fetch"
 )
-public class Fetch extends Task implements RunnableTask<Fetch.Output> {
+public class Fetch extends AbstractKestraTask implements RunnableTask<Fetch.Output> {
     @Schema(
         title = "Filter for a specific namespace in case `executionId` is set."
     )
@@ -98,7 +98,7 @@ public Output run(RunContext runContext) throws Exception {
         targetExecutionId = (String) executionVars.get("id");
     }
 
-    String targetFlowId = runContext.render(this.flowId).as(String.class).orElse(currentFlowId); // <--- ADD THIS logic
+    String targetFlowId = runContext.render(this.flowId).as(String.class).orElse(currentFlowId);
 
     var executionInfo = PluginUtilsService.executionFromTaskParameters(
         runContext,
@@ -107,7 +107,7 @@ public Output run(RunContext runContext) throws Exception {
         targetExecutionId
     );
 
-    LogRepositoryInterface logRepository = ((DefaultRunContext)runContext).getApplicationContext().getBean(LogRepositoryInterface.class);
+    KestraClient kestraClient = kestraClient(runContext);
 
     File tempFile = runContext.workingDir().createTempFile(".ion").toFile();
     AtomicLong count = new AtomicLong();
@@ -118,7 +118,7 @@ public Output run(RunContext runContext) throws Exception {
 
         if (!renderedTaskId.isEmpty()) {
             for (String taskId : renderedTaskId) {
-                logRepository.findByExecutionIdAndTaskId(
+                kestraClient.logs(
                         currenttenantid,
                         executionInfo.namespace(),
                         executionInfo.flowId(),
@@ -132,7 +132,7 @@ public Output run(RunContext runContext) throws Exception {
                     }));
             }
         } else {
-            logRepository.findByExecutionId(
+            kestraClient.logs(
                     currenttenantid,
                     executionInfo.namespace(),
                     executionInfo.flowId(),
